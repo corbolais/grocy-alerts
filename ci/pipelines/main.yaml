@@ -1,0 +1,214 @@
+# pipeline_name:  grocy-alerts
+# team:           main
+
+---
+resource_types:
+- name: pull-request
+  type: registry-image
+  source:
+    repository: teliaoss/github-pr-resource
+
+resources:
+  - name: pull-request
+    type: pull-request
+    check_every: 24h
+    webhook_token: ((github.webhook_token))
+    source:
+      repository: typositoire/grocy-alerts
+      access_token: ((github.access_token))
+
+  - name: main-version
+    type: git
+    source:
+      paths:
+        - VERSION
+      uri: git@github.com:typositoire/grocy-alerts.git
+      branch: main
+      private_key: ((github.deploy_key))
+
+  - name: main-version-write
+    type: git
+    source:
+      uri: git@github.com:typositoire/grocy-alerts.git
+      branch: main
+      private_key: ((github.deploy_key))
+
+  - name: main-tags
+    type: git
+    source:
+      uri: git@github.com:typositoire/grocy-alerts.git
+      branch: main
+      private_key: ((github.deploy_key))
+      tag_filter: "v*.*.*"
+
+  - name: resource-image-gh
+    type: registry-image
+    source:
+      repository: ghcr.io/typositoire/grocy-alerts
+      username: typositoire
+      password: ((github.access_token))
+      tag: latest
+
+jobs:
+  - name: build-image-tag
+    plan:
+      - get: main-tags
+        trigger: true
+        version: every
+      - task: get_version_build_args
+        config:
+          platform: linux
+          image_resource:
+            type: registry-image
+            source:
+              repository: alpine
+          inputs:
+            - name: main-tags
+          outputs:
+            - name: info
+          run:
+            path: sh
+            args:
+              - -c
+              - |
+                #!/bin/sh
+
+                cd main-tags
+                echo VERSION=v$(cat VERSION) > ../info/tag
+      - task: build
+        privileged: true
+        config:
+          platform: linux
+          params:
+            BUILD_ARGS_FILE: info/tag
+          image_resource:
+            type: registry-image
+            source:
+              repository: concourse/oci-build-task
+          inputs:
+            - name: main-tags
+              path: .
+            - name: info
+          outputs:
+            - name: image
+          run:
+            path: build
+      - in_parallel:
+          steps:
+            - put: resource-image-gh
+              params:
+                image: image/image.tar
+                additional_tags: main-tags/.git/ref
+
+  - name: tag-main
+    plan:
+      - get: main-version
+        trigger: true
+        version: every
+      - task: compute-info
+        config:
+          platform: linux
+          image_resource:
+            type: registry-image
+            source:
+              repository: alpine/git
+              tag: v2.30.2
+          inputs:
+            - name: main-version
+          outputs:
+            - name: info
+          run:
+            path: sh
+            args:
+              - -c
+              - |
+                #!/bin/sh
+
+                set -ex
+
+                cd main-version
+                git log $(git describe --tags --abbrev=0)..HEAD --oneline > ../info/notes
+
+                echo v$(cat VERSION) > ../info/tag
+      - put: main-version-write
+        params:
+          repository: main-version
+          tag: info/tag
+          only_tag: true
+          branch: main
+          annotate: info/notes
+
+  - name: validate-prs
+    plan:
+      - in_parallel:
+          steps:
+            - get: pull-request
+              trigger: true
+              version: every
+              params:
+                list_changed_files: true
+            - get: main-tags
+              params:
+                fetch_tags: true
+      - in_parallel:
+          steps:
+            - put: update-status
+              resource: pull-request
+              params:
+                path: pull-request
+                status: pending
+              get_params: { skip_download: true }
+            - task: check-for-version-bump
+              on_failure:
+                put: update-status
+                resource: pull-request
+                params:
+                  path: pull-request
+                  status: failure
+                get_params: { skip_download: true }
+              config:
+                platform: linux
+                image_resource:
+                  type: registry-image
+                  source:
+                    repository: alpine/git
+                    tag: v2.30.2
+                inputs:
+                  - name: pull-request
+                  - name: main-tags
+                outputs:
+                  - name: pr-notes
+                run:
+                  path: sh
+                  args:
+                    - -c
+                    - |
+                      #!/bin/sh
+                      set -e
+
+                      NO_CI_FILES="$(cat pull-request/.git/resource/changed_files | grep -v "ci" | grep -v "README.md" | wc -l)"
+
+                      if [ "${NO_CI_FILES}" == "0" ]; then
+                        echo "Concourse: Only CI files where changed, no version bump needed" | tee pr-notes/msg
+                        exit 0
+                      fi
+
+                      LAST_TAG="$(cat main-tags/.git/ref)"
+                      NEW_TAG="v$(cat pull-request/VERSION)"
+                      RESULT=$(pull-request/ci/assets/checksemver.sh ${NEW_TAG} ${LAST_TAG})
+                      if [ "${RESULT}" == "1" ]; then
+                        echo "Concourse: Version bump found." | tee pr-notes/msg
+                        exit 0
+                      elif [ "${RESULT}" == "0" ]; then
+                        echo "Concourse: Version bump did not happen. ${LAST_TAG} is the same as ${NEW_TAG}" | tee pr-notes/msg
+                        exit 1
+                      else
+                        echo "Concourse: Version bump did not happen. ${LAST_TAG} is higher than ${NEW_TAG}" | tee pr-notes/msg
+                        exit 1
+                      fi
+      - put: pull-request
+        params:
+          path: pull-request
+          status: success
+          delete_previous_comments: true
+          comment_file: pr-notes/msg
