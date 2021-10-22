@@ -25,18 +25,21 @@ import (
 )
 
 var cfgFile string
+var logLevel string
+var AppVersion = "local-dev"
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:     "grocy-alerts",
-	Short:   "A brief description of your application",
-	Version: "development",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Short:   "Fetch products expiering in the next `X` days and notify users throught `backend`.",
+	Version: AppVersion,
+	Long: `Fetch products from grocy api and can notify users using multiple backend
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+Currently supported backend are:
+- Sendgrid Dynamic Templates
+- Stdout
+- More to come.
+`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
@@ -64,7 +67,7 @@ func init() {
 	// will be global for your application.
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.grocy-alerts.yaml)")
-	// rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "l", "info", "Extra output")
+	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "l", "info", "Extra output")
 	// rootCmd.SetVersionTemplate("Version: " + rootCmd.Version)
 
 	// Cobra also supports local flags, which will only run

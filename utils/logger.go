@@ -36,8 +36,11 @@ func NewLogger(output *os.File, component string) (Logger, error) {
 		zerolog.SetGlobalLevel(zerolog.WarnLevel)
 	case "fatal":
 		zerolog.SetGlobalLevel(zerolog.FatalLevel)
+	case "info":
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	default:
-		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+		log.Info().Msgf("Unknown log-level %s, using info.", viper.GetString("log-level"))
 	}
 
 	return logger{

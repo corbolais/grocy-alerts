@@ -2,31 +2,45 @@
 # team:           main
 
 ---
-resource_types: []
+resource_types:
+- name: pull-request
+  type: registry-image
+  source:
+    repository: teliaoss/github-pr-resource
+
 resources:
-  - name: master-version
+  - name: pull-request
+    type: pull-request
+    check_every: 24h
+    webhook_token: ((github.webhook_token))
+    source:
+      repository: typositoire/grocy-alerts
+      access_token: ((github.access_token))
+
+  - name: main-version
     type: git
     source:
       paths:
         - VERSION
       uri: git@github.com:typositoire/grocy-alerts.git
-      branch: master
+      branch: main
       private_key: ((github.deploy_key))
 
-  - name: master-version-write
+  - name: main-version-write
     type: git
     source:
       uri: git@github.com:typositoire/grocy-alerts.git
-      branch: master
+      branch: main
       private_key: ((github.deploy_key))
 
-  - name: master-tags
+  - name: main-tags
     type: git
     source:
       uri: git@github.com:typositoire/grocy-alerts.git
-      branch: master
+      branch: main
       private_key: ((github.deploy_key))
       tag_filter: "v*.*.*"
+
   - name: resource-image-gh
     type: registry-image
     source:
@@ -38,7 +52,7 @@ resources:
 jobs:
   - name: build-image-tag
     plan:
-      - get: master-tags
+      - get: main-tags
         trigger: true
         version: every
       - task: build
@@ -50,7 +64,7 @@ jobs:
             source:
               repository: concourse/oci-build-task
           inputs:
-            - name: master-tags
+            - name: main-tags
               path: .
           outputs:
             - name: image
@@ -61,14 +75,11 @@ jobs:
             - put: resource-image-gh
               params:
                 image: image/image.tar
-                additional_tags: master-tags/.git/ref
-            - put: resource-image
-              params:
-                image: image/image.tar
-                additional_tags: master-tags/.git/ref
-  - name: tag-master
+                additional_tags: main-tags/.git/ref
+
+  - name: tag-main
     plan:
-      - get: master-version
+      - get: main-version
         trigger: true
         version: every
       - task: compute-info
@@ -80,7 +91,7 @@ jobs:
               repository: alpine/git
               tag: v2.30.2
           inputs:
-            - name: master-version
+            - name: main-version
           outputs:
             - name: info
           run:
@@ -90,17 +101,18 @@ jobs:
               - |
                 #!/bin/sh
 
-                cd master-version
+                cd main-version
                 git log $(git describe --tags --abbrev=0)..HEAD --oneline > ../info/notes
 
                 echo v$(cat VERSION) > ../info/tag
-      - put: master-version-write
+      - put: main-version-write
         params:
-          repository: master-version
+          repository: main-version
           tag: info/tag
           only_tag: true
-          branch: master
+          branch: main
           annotate: info/notes
+
   - name: validate-prs
     plan:
       - in_parallel:
@@ -110,7 +122,7 @@ jobs:
               version: every
               params:
                 list_changed_files: true
-            - get: master-tags
+            - get: main-tags
               params:
                 fetch_tags: true
       - in_parallel:
@@ -138,7 +150,7 @@ jobs:
                     tag: v2.30.2
                 inputs:
                   - name: pull-request
-                  - name: master-tags
+                  - name: main-tags
                 outputs:
                   - name: pr-notes
                 run:
@@ -156,7 +168,7 @@ jobs:
                         exit 0
                       fi
 
-                      LAST_TAG="$(cat master-tags/.git/ref)"
+                      LAST_TAG="$(cat main-tags/.git/ref)"
                       NEW_TAG="v$(cat pull-request/VERSION)"
                       RESULT=$(pull-request/ci/assets/checksemver.sh ${NEW_TAG} ${LAST_TAG})
                       if [ "${RESULT}" == "1" ]; then

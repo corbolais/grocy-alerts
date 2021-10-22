@@ -16,7 +16,7 @@ COPY go.sum .
 RUN go mod download && \
   apk add --no-cache gcc musl-dev
 COPY . .
-RUN go build -ldflags="-X 'main.version=${VERSION}'" -o grocy-alerts .
+RUN go build -ldflags="-X github.com/typositoire/grocy-alerts/cmd.AppVersion=$VERSION" -o grocy-alerts .
 WORKDIR /dist
 RUN cp /build/grocy-alerts .
 

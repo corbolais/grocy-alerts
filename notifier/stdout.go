@@ -33,6 +33,6 @@ func (n stdoutNotifier) SendNotification(m interface{}) error {
 	return nil
 }
 
-func (n stdoutNotifier) BuildNotification(data interface{}) (interface{}, error) {
+func (n stdoutNotifier) BuildNotification(data interface{}, recipient string) (interface{}, error) {
 	return data, nil
 }

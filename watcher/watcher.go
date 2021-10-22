@@ -49,12 +49,15 @@ func New(grocy_url string, grocy_apikey string, sg_apikey string, notifier_backe
 }
 
 func (w watcher) Run() {
-	dp, err := w.GrocyClient.GetDueProduct(5)
+	days := viper.GetString("grocy_due-soon-max")
+	tos := viper.GetString("sg_recipients")
+
+	dp, err := w.GrocyClient.GetDueProduct(days)
 	if err != nil {
 		w.Logger.Warnf("Error: %s", err.Error())
 	}
 
-	m, err := w.Notifier.BuildNotification(dp)
+	m, err := w.Notifier.BuildNotification(dp, tos)
 
 	if err != nil {
 		w.Logger.Fatalf("Error: %s", err.Error())

@@ -1,7 +1,10 @@
 package notifier
 
 import (
+	"errors"
+	"fmt"
 	"os"
+	"strings"
 
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
 	"github.com/typositoire/grocy-alerts/sendgrid"
@@ -37,8 +40,14 @@ func (n sendgridNotifier) SendNotification(m interface{}) error {
 	return n.SendgridClient.SendEmail(m.(*mail.SGMailV3))
 }
 
-func (n sendgridNotifier) BuildNotification(data interface{}) (interface{}, error) {
-	m, err := n.SendgridClient.BuildEmail(n.From, "Grocy Alerts", "davidyann88@gmail.com", n.TemplateID, data)
+func (n sendgridNotifier) BuildNotification(data interface{}, recipient string) (interface{}, error) {
+	if !strings.Contains(recipient, "@") {
+		return nil, fmt.Errorf("invalid recipient %s", recipient)
+	} else if recipient == "" {
+		return nil, errors.New("empty recipient list")
+	}
+
+	m, err := n.SendgridClient.BuildEmail(n.From, "Grocy Alerts", recipient, n.TemplateID, data)
 
 	if err != nil {
 		return nil, err

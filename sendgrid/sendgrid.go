@@ -3,6 +3,7 @@ package sendgrid
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	sg "github.com/sendgrid/sendgrid-go"
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
@@ -41,9 +42,13 @@ func (s sendgrid) BuildEmail(from string, name string, to string, templateID str
 	m.SetTemplateID(templateID)
 
 	p := mail.NewPersonalization()
-	tos := []*mail.Email{
-		mail.NewEmail("Grocy Alerts", to),
+	tos := []*mail.Email{}
+
+	for _, t := range strings.Split(to, ",") {
+		s.Logger.Debugf("Adding recipient %s", t)
+		tos = append(tos, mail.NewEmail("Grocy Alerts", t))
 	}
+
 	p.AddTos(tos...)
 	p.SetDynamicTemplateData("dueProducts", data.(grocy.SimpleProductData).DueProduct)
 	p.SetDynamicTemplateData("overdueProducts", data.(grocy.SimpleProductData).OverdueProduct)

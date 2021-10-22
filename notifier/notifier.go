@@ -7,7 +7,7 @@ import (
 )
 
 type Notifier interface {
-	BuildNotification(data interface{}) (interface{}, error)
+	BuildNotification(data interface{}, recipient string) (interface{}, error)
 	SendNotification(m interface{}) error
 }
 

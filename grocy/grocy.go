@@ -9,7 +9,7 @@ import (
 )
 
 type Grocy interface {
-	GetDueProduct(days int) (SimpleProductData, error)
+	GetDueProduct(days string) (SimpleProductData, error)
 }
 
 type grocy struct {
@@ -34,12 +34,12 @@ func NewClient(url string, apikey string) (Grocy, error) {
 	}, nil
 }
 
-func (g grocy) GetDueProduct(days int) (SimpleProductData, error) {
+func (g grocy) GetDueProduct(days string) (SimpleProductData, error) {
 	dueProducts := []SimpleProduct{}
 	overdueProducts := []SimpleProduct{}
 	expiredProducts := []SimpleProduct{}
 	missingProducts := []SimpleProduct{}
-	resp, err := g.Client.R().Get("/stock/volatile")
+	resp, err := g.Client.R().Get("/stock/volatile?due_soon_days=" + days)
 	if err != nil {
 		g.Logger.Warnf("Cannot get /stock/volatile from %s, error: %s", g.Client.HostURL, err.Error())
 		return SimpleProductData{}, err
@@ -48,6 +48,8 @@ func (g grocy) GetDueProduct(days int) (SimpleProductData, error) {
 	var body CurrentVolatileStockResponse
 
 	json.Unmarshal(resp.Body(), &body)
+
+	g.Logger.Debugf("Called %v", resp.Request.RawRequest.URL)
 
 	for _, dueProduct := range body.DueProduct {
 		dueProducts = append(dueProducts, SimpleProduct{Name: dueProduct.Product.Name, BestBeforeDate: dueProduct.BestBeforeDate})

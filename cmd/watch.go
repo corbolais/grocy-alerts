@@ -25,14 +25,16 @@ import (
 
 // watchCmd represents the watch command
 var watchCmd = &cobra.Command{
-	Use:   "watch",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Use:     "watch",
+	Short:   "Fetch products expiering in the next `X` days and notify users throught `backend`.",
+	Version: rootCmd.Version,
+	Long: `Fetch products from grocy api and can notify users using multiple backend
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+Currently supported backend are:
+- Sendgrid Dynamic Templates
+- Stdout
+- More to come.
+`,
 	Run: func(cmd *cobra.Command, args []string) {
 		grocyUrl := viper.GetString("grocy_api-url")
 		grocyApiKey := viper.GetString("grocy_api-key")
@@ -65,9 +67,11 @@ func init() {
 	watchCmd.PersistentFlags().String("notifier-backend", "stdout", "Notifier backend.")
 	watchCmd.PersistentFlags().String("grocy_api-url", "http://grocy.example.com", "Grocy url without `/api`.")
 	watchCmd.PersistentFlags().String("grocy_api-key", "APIKEY", "Grocy API Key to gather products due soon.")
+	watchCmd.PersistentFlags().String("grocy_due-soon-max", "5", "How far due to fetch.")
 	watchCmd.PersistentFlags().String("sg_template-id", "d-dXXXXXXXXXXXXXXX", "Dynamic template ID for notification.")
 	watchCmd.PersistentFlags().String("sg_from-email", "grocy-alerts@example.com", "Dynamic template ID for notification.")
 	watchCmd.PersistentFlags().String("sg_api-key", "APIKEY", "Sendgrid api key.")
+	watchCmd.PersistentFlags().String("sg_recipients", "", "Comma seperated list of recipient for sendgrid backend.")
 
 	viper.BindPFlags(watchCmd.PersistentFlags())
 	viper.BindPFlags(watchCmd.Flags())
