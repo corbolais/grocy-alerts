@@ -55,10 +55,32 @@ jobs:
       - get: main-tags
         trigger: true
         version: every
+      - task: get_version_build_args
+        config:
+          platform: linux
+          image_resource:
+            type: registry-image
+            source:
+              repository: alpine
+          inputs:
+            - name: main-tags
+          outputs:
+            - name: info
+          run:
+            path: sh
+            args:
+              - -c
+              - |
+                #!/bin/sh
+
+                cd main-tags
+                echo VERSION=v$(cat VERSION) > ../info/tag
       - task: build
         privileged: true
         config:
           platform: linux
+          params:
+            BUILD_ARGS_FILE: info/tag
           image_resource:
             type: registry-image
             source:
@@ -66,6 +88,7 @@ jobs:
           inputs:
             - name: main-tags
               path: .
+            - name: info
           outputs:
             - name: image
           run:
@@ -100,6 +123,8 @@ jobs:
               - -c
               - |
                 #!/bin/sh
+
+                set -ex
 
                 cd main-version
                 git log $(git describe --tags --abbrev=0)..HEAD --oneline > ../info/notes
