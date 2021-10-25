@@ -51,6 +51,7 @@ resources:
 
 jobs:
   - name: build-image-tag
+    public: true
     plan:
       - get: main-tags
         trigger: true
@@ -101,6 +102,7 @@ jobs:
                 additional_tags: main-tags/.git/ref
 
   - name: tag-main
+    public: false
     plan:
       - get: main-version
         trigger: true
@@ -139,6 +141,7 @@ jobs:
           annotate: info/notes
 
   - name: validate-prs
+    public: false
     plan:
       - in_parallel:
           steps:
