@@ -1,5 +1,7 @@
 # grocy-alerts
 
+![CI Build](https://concourse.pubb-it.com/api/v1/teams/main/pipelines/grocy-alerts/jobs/build-image-tag/badge)
+
 Grocy alerts was made in an attempt to give more visibility to expiring soon products in Grocy.
 
 ## Usage
